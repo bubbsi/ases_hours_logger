@@ -1,7 +1,7 @@
 import sys
 import json
 import time
-from utils import login, go_to_log_hours_page, fill_out_table
+from utils import load_selection, login, go_to_log_hours_page, fill_out_table
 
 
 # Check requirements have been installed
@@ -10,6 +10,8 @@ try:
     from pykeepass import PyKeePass
     from selenium import webdriver
     from selenium.common.exceptions import WebDriverException
+    from selenium.webdriver.edge.service import Service
+    from selenium.webdriver.edge.options import Options
 except ModuleNotFoundError:
     print("\nA required module was not found." +
           "\nPlease run 'pip3 install -r requirements.txt'\n")
@@ -23,7 +25,7 @@ def load_credentials(use_keypass_credentials: bool,
                      keepass_database_file_path: str,
                      keepass_entry_title: str):
 
-    if len(sys.argv) < 3 and use_keypass_credentials is False:
+    if len(sys.argv) > 3 and use_keypass_credentials is False:
         print('Usage: python script.py "USERNAME" "PASSWORD"')
         sys.exit(1)
     if use_keypass_credentials is True:
@@ -92,12 +94,20 @@ def main():
                                           KEEPASS_DATABASE_FILE_PATH,
                                           KEEPASS_ENTRY_TITLE)
 
-    browser = webdriver.Chrome()
+ 
+    service = Service("/usr/local/bin/msedgedriver")
+
+    options = Options()
+    #options.add_argument("--user-data-dir=/Users/davidsilvaribeaux/Library/Application Support/Microsoft Edge")
+    browser = webdriver.Edge(service=service,options=options)
+    
 
     try:
         browser.get(ASES_URL)
         login(browser, ASES_URL, USERNAME, PASSWORD, LOGIN_DROP_DOWN_INDEX)
         go_to_log_hours_page(browser)
+        load_selection(browser)
+        time.sleep(5)
         fill_out_table(browser, TIME_SLOTS, BUFFER_TIME, AUTOSAVE, VERBOSE)
 
         print(f"Waiting {FINAL_WAIT_IN_SEC} before closing window.")
