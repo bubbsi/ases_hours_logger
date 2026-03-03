@@ -1,5 +1,6 @@
 {
   "ASES_URL": "your_ases_url",
+  "WEBDRIVER_PATH": "/usr/local/bin/msedgedriver",
   "LOGIN_DROP_DOWN_INDEX": 5,
   "AUTOSAVE": false,
   "VERBOSE": true,
