@@ -79,6 +79,7 @@ def main():
     # Load settings
     settings = load_settings()
     ASES_URL = settings.get("ASES_URL")
+    WEBEDRIVER_PATH = settings.get("WEBDRIVER_PATH")
     BUFFER_TIME = settings.get("BUFFER_TIME")
     LOGIN_DROP_DOWN_INDEX = settings.get("LOGIN_DROP_DOWN_INDEX")
     FINAL_WAIT_IN_SEC = settings.get("FINAL_WAIT_IN_SEC")
@@ -94,11 +95,9 @@ def main():
                                           KEEPASS_DATABASE_FILE_PATH,
                                           KEEPASS_ENTRY_TITLE)
 
- 
-    service = Service("/usr/local/bin/msedgedriver")
+    service = Service(WEBEDRIVER_PATH)
 
     options = Options()
-    #options.add_argument("--user-data-dir=/Users/davidsilvaribeaux/Library/Application Support/Microsoft Edge")
     browser = webdriver.Edge(service=service,options=options)
     
 
