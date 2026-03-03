@@ -15,25 +15,196 @@ def login(browser: webdriver,
           drop_down_index: int):
     # Wait for the iframe to be present on the page
     iframe = WebDriverWait(browser, 10).until(
+        EC.url_contains("login.microsoftonline.com")
+    )
+    # Switch to the iframe
+    #browser.switch_to.frame(iframe)
+
+    # Get necessary elements
+    user_field_xpath = "//input[@name='loginfmt' \
+        and @placeholder='vorname.nachname@deutschebahn.com']"
+    user_field = WebDriverWait(browser, 10).until(
+        EC.presence_of_element_located((By.XPATH, user_field_xpath)))
+
+    #password_field_xpath = "//input[@class='z-focustextbox-real' \
+    #    and @placeholder='Kennwort']"
+    #password_field = WebDriverWait(browser, 10).until(
+     #   EC.presence_of_element_located((By.XPATH, password_field_xpath)))
+
+    #drop_down_xpath = "//input[@placeholder='Mandant']"
+    #drop_down = WebDriverWait(browser, 10).until(
+    #    EC.presence_of_element_located((By.XPATH, drop_down_xpath)))
+
+    login_button = WebDriverWait(browser, 10).until(
+        EC.presence_of_element_located((By.ID, "idSIButton9")))
+
+    # Fill out form and login
+    user_field.send_keys(username)
+
+    #password_field.send_keys(password)
+    #drop_down.click()
+
+    # If ClientNo not specified in the ases_url -> select manually
+    #if "ClientNo" not in ases_url:
+        # Press the down arrow drop_down_index times to reach the desired item
+    #    for _ in range(drop_down_index):
+    #        drop_down.send_keys(Keys.ARROW_DOWN)
+    #    drop_down.send_keys(Keys.ENTER)
+    login_button.click()
+
+
+def go_to_log_hours_page(browser: webdriver):
+    iframe = WebDriverWait(browser, 10).until(
         EC.presence_of_element_located((By.ID, 'applicationIframe'))
     )
     # Switch to the iframe
     browser.switch_to.frame(iframe)
+    # Click on nav_menu button
+    nav_menu = WebDriverWait(browser, 10).until(
+        EC.element_to_be_clickable((By.ID, 'nav_menu'))
+    )
+    nav_menu.click()
 
-    # Get necessary elements
-    user_field_xpath = "//input[@class='z-focustextbox-real' \
-        and @placeholder='Benutzername']"
-    user_field = WebDriverWait(browser, 10).until(
-        EC.presence_of_element_located((By.XPATH, user_field_xpath)))
+    # Click on log_hours button
+    log_hours_page_button_xpath = "//span[@class='btn-label' \
+                and text()='Erfassen Zeitbuchung']"
+    max_retries = 3
+    for _ in range(max_retries):
+        try:
+            log_hours_page_button = WebDriverWait(browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, log_hours_page_button_xpath))
+            )
+            ActionChains(browser).move_to_element(
+                log_hours_page_button).click().perform()
+            break  # Break out of the loop if the action is successful
+        except StaleElementReferenceException:
+            pass  # Retry the action on StaleElementReferenceException
 
-    password_field_xpath = "//input[@class='z-focustextbox-real' \
-        and @placeholder='Kennwort']"
-    password_field = WebDriverWait(browser, 10).until(
-        EC.presence_of_element_located((By.XPATH, password_field_xpath)))
+def load_selection(browser: webdriver):
+    #cick button open selection
+    load_selection_button_xpath = "//button[@class='pull-right' and text()='Auswahl laden']"
+    max_retries = 3
+    for _ in range(max_retries):
+        try:
+            log_hours_page_button = WebDriverWait(browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, load_selection_button_xpath))
+            )
+            ActionChains(browser).move_to_element(
+                log_hours_page_button).click().perform()
+            break  # Break out of the loop if the action is successful
+        except StaleElementReferenceException:
+            pass  # Retry the action on StaleElementReferenceException
 
-    drop_down_xpath = "//input[@placeholder='Mandant']"
-    drop_down = WebDriverWait(browser, 10).until(
-        EC.presence_of_element_located((By.XPATH, drop_down_xpath)))
+
+def send_keys_and_wait(actions: ActionChains, keys: str, buffer_time: int):
+    actions.send_keys(keys)
+    actions.pause(buffer_time)
+
+
+def fill_out_table(browser: webdriver,
+                   time_slots: dict,
+                   buffer_time: int,
+                   autosave: bool,
+                   verbose: bool):
+
+    # Locate the table element
+    table = WebDriverWait(browser, 10).until(
+        EC.presence_of_element_located((By.CLASS_NAME, 'grid-canvas'))
+    )
+    rows = table.find_elements(By.CLASS_NAME, "slick-row")
+    number_or_rows = len(rows)
+
+    # Iterate over rows
+    for i in range(number_or_rows):
+        table = WebDriverWait(browser, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'grid-canvas')))
+        row = table.find_elements(By.CLASS_NAME, "slick-row")[i]
+
+        # Get Cell information
+        cells = row.find_elements(By.CLASS_NAME, "slick-cell")
+        date_cell = cells[0]
+        weekday_cell = cells[1]
+        absence_code_cell = cells[-1]
+        code_cell = cells[2]
+
+        from_cell = WebDriverWait(browser, 10).until(
+            EC.element_to_be_clickable(cells[4]))
+
+        # Ignore if weekend or vacation day
+        if (weekday_cell.text == 'Sa'
+            or weekday_cell.text == 'So'
+                or absence_code_cell.text == 'U'
+                or absence_code_cell.text == 'XY'
+                or absence_code_cell.text == 'BU'):
+            showMessage(verbose,
+                        f"\nDay {date_cell.text} is in the weekend" +
+                        " or a vacation day.\nIGNORED\n")
+        elif(code_cell.text.startswith("U") or code_cell.text.startswith("WF")):
+            showMessage(verbose,
+                        f"\nDay {date_cell.text} is a vacation day.\nIGNORED\n")
+
+        # Ignore if already set
+        elif (":" in from_cell.text):
+            showMessage(verbose,
+                        f"\nDay {date_cell.text} is already set.\nIGNORED\n")
+
+        # Fill out table
+        else:
+            showMessage(verbose,
+                        f"\nFilling out day {date_cell.text}" +
+                        f" with {time_slots[weekday_cell.text]} ...")
+
+            # Click on cell
+            from_cell.click()
+            from_cell.click()
+            
+
+            # Wait for pop up window to appear
+            button_xpath = "//button[@class='z-button' \
+                and text()='Übernehmen']"
+            button = WebDriverWait(browser, 20).until(
+                EC.presence_of_element_located((By.XPATH, button_xpath)))
+            
+            div_xpath = "//div[@class='z-window-content' and .//button[@class='z-button' and text()='Übernehmen']]"
+            div = WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, div_xpath)))
+            rows = div.find_elements(By.CLASS_NAME, "slick-cell")
+            for row in rows:
+                try:
+                    row.click()
+                    if("slick-cell l1 r1" in row.get_attribute("class")):
+                        actions = ActionChains(browser)
+                        send_keys_and_wait(
+                            actions, time_slots[weekday_cell.text][0], buffer_time)
+                        actions.perform()
+                        time.sleep(buffer_time)
+                    if("slick-cell l3 r3" in row.get_attribute("class")):
+                        send_keys_and_wait(
+                            actions, time_slots[weekday_cell.text][1], buffer_time)
+                        actions.perform()
+                        time.sleep(buffer_time)
+                except:
+                    continue
+            
+            button.click()
+            time.sleep(5)
+    
+
+    if autosave:
+        save_button_xpath = '//a[@class="z-toolbarbutton" and \
+            .//span[contains(text(), "Speichern")]]'
+        save_button = WebDriverWait(browser, 10).until(
+            EC.element_to_be_clickable((By.XPATH, save_button_xpath)))
+        save_button.click()
+        print("\nSaved changes. Done.")
+    else:
+        print("\nDone with booking. Please click on the save button.")
+
+
+def showMessage(verbose: bool, msg: str):
+    if verbose:
+        print("\n", msg)
 
     login_button = WebDriverWait(browser, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME, "btn-login")))
